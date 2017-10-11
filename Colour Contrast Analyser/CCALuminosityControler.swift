@@ -7,6 +7,19 @@
 //
 
 import Cocoa
+// FIXME: comparison operators with optionals were removed from the Swift Standard Libary.
+// Consider refactoring the code to use the non-optional operators.
+fileprivate func < <T : Comparable>(lhs: T?, rhs: T?) -> Bool {
+  switch (lhs, rhs) {
+  case let (l?, r?):
+    return l < r
+  case (nil, _?):
+    return true
+  default:
+    return false
+  }
+}
+
 
 class CCALuminosityControler: NSViewController {
     
@@ -35,14 +48,21 @@ class CCALuminosityControler: NSViewController {
         largeTextAAA.level = "AAA"
 
         self.updateResults()
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: "updateForeground:", name: "ForegroundColorChangedNotification", object: nil)
-        NSNotificationCenter.defaultCenter().addObserver(self, selector: "updateBackground:", name: "BackgroundColorChangedNotification", object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(CCALuminosityControler.updateForeground(_:)), name: NSNotification.Name(rawValue: "ForegroundColorChangedNotification"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(CCALuminosityControler.updateBackground(_:)), name: NSNotification.Name(rawValue: "BackgroundColorChangedNotification"), object: nil)
     }
     
     func updateResults() {
+        //    if ((2.95 <= eRaw) and (3 > eRaw)) or ((4.45 <= eRaw) and (4.5 > eRaw)) then
         luminosityValue = Luminosity.getResult(self.fColor, bColor:self.bColor)
-        contrastRatioString = String(format:"%.2f:1", luminosityValue!)
-        ratioText.stringValue = String(format:NSLocalizedString("contrast_ratio", comment:"Contrast Ratio: %.2f:1"), luminosityValue!)
+        let roundedValue = round(luminosityValue!*1000)/1000
+        contrastRatioString = String(format:"%.3f:1", roundedValue)
+        if ((luminosityValue! >= 6.95 && luminosityValue! < 7) || (luminosityValue! >= 4.45 && luminosityValue! < 4.5) || (luminosityValue! >= 2.95 && luminosityValue! < 3)) {
+            ratioText.stringValue = String(format:NSLocalizedString("contrast_ratio_below", comment:"")) + String(format:"%.1f:1 (%.3f:1)", luminosityValue!, roundedValue)
+        } else {
+            ratioText.stringValue = String(format:NSLocalizedString("contrast_ratio", comment:"")) + String(format:"%.1f:1", luminosityValue!)
+        }
+
         passAA = true
         passAAA = true
         passAALarge = true
@@ -62,7 +82,7 @@ class CCALuminosityControler: NSViewController {
         largeTextAA.pass = passAALarge
         largeTextAAA.pass = passAAALarge
     }
-    func updateForeground(notification: NSNotification) {
+    @objc func updateForeground(_ notification: Notification) {
         self.fColor = notification.userInfo!["color"] as! NSColor
         self.updateResults()
         
@@ -76,7 +96,7 @@ class CCALuminosityControler: NSViewController {
         largeTextAA.textColor = color
         largeTextAAA.textColor = color
     }
-    func updateBackground(notification: NSNotification) {
+    @objc func updateBackground(_ notification: Notification) {
         self.bColor = notification.userInfo!["color"] as! NSColor
         self.updateResults()
         textAA.backgroundColor = self.bColor
